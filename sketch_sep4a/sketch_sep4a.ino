@@ -85,111 +85,107 @@ void handleRoot() {
   <head>
     <meta charset="UTF-8">
     <title>Consumo de Máquinas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-      body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; text-align: center; }
-      .container { max-width: 900px; margin: auto; padding: 20px; }
-      .card { background-color: #fff; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 12px; padding: 20px; margin-bottom: 30px; transition: background-color 0.3s ease; }
-      canvas { max-width: 100%; }
-      input[type="number"] { padding: 10px; border-radius: 6px; border: 1px solid #ccc; width: 120px; font-size: 16px; }
-      button { padding: 10px 20px; border-radius: 6px; border: none; background-color: #007bff; color: white; font-size: 16px; cursor: pointer; margin-left: 10px; }
-      button:hover { background-color: #0056b3; }
-      #statusLimite { margin-top: 10px; font-weight: bold; color: #333; }
-      #alerta { font-weight: bold; color: #ff0000; font-size: 20px; margin-bottom: 20px; }
+      body { font-family: Arial; background-color: #f5f5f5; margin:0; padding:0; }
+      #alerta { font-weight:bold; color:#ff0000; font-size:20px; margin-bottom:20px; text-align:center; }
       .alerta { animation: piscar 1s infinite; }
-      @keyframes piscar { 0% { background-color: #fff; } 50% { background-color: #ffcccc; } 100% { background-color: #fff; } }
+      @keyframes piscar { 0% { background-color:#fff;} 50% {background-color:#ffcccc;} 100%{background-color:#fff;} }
+      canvas { max-width: 100%; }
+      input[type="number"] { max-width:150px; }
     </style>
   </head>
   <body>
-    <div class="container">
-      <h1>Monitoramento de Consumo de Máquinas</h1>
+    <div class="container mt-4">
+      <h1 class="mb-4 text-center">Monitoramento de Consumo de Máquinas</h1>
       <div id="alerta"></div>
 
-      <div id="card1" class="card">
-        <h2>Máquina 1</h2>
-        <canvas id="chart1"></canvas>
+      <!-- Row dos dashboards -->
+      <div class="row justify-content-center">
+        <div class="col-12 col-md-6 mb-3">
+          <div id="card1" class="card p-3">
+            <h2 class="text-center">Máquina 1</h2>
+            <canvas id="chart1"></canvas>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 mb-3">
+          <div id="card2" class="card p-3">
+            <h2 class="text-center">Máquina 2</h2>
+            <canvas id="chart2"></canvas>
+          </div>
+        </div>
       </div>
 
-      <div id="card2" class="card">
-        <h2>Máquina 2</h2>
-        <canvas id="chart2"></canvas>
-      </div>
-
-      <div class="card">
+      <!-- Card do limite de consumo -->
+      <div class="card p-3 mt-3 text-center">
         <h3>Definir limite de consumo (W)</h3>
-        <input type="number" id="limite" placeholder="Ex: 150">
-        <button onclick="definirLimite()">Enviar</button>
-        <p id="statusLimite"></p>
+        <div class="d-flex justify-content-center flex-wrap mt-2">
+          <input type="number" id="limite" class="form-control me-2 mb-2" placeholder="Ex: 150">
+          <button class="btn btn-primary mb-2" onclick="definirLimite()">Enviar</button>
+        </div>
+        <p id="statusLimite" class="mt-2"></p>
       </div>
     </div>
 
     <script>
       let chart1, chart2;
-      let limite = null; // Limite só definido após o usuário informar
+      let limite = null;
 
       async function carregarDados() {
         try {
           const resp = await fetch("/data");
           const dados = await resp.json();
-
           atualizarGrafico(chart1, dados.labels1, dados.values1);
           atualizarGrafico(chart2, dados.labels2, dados.values2);
 
           if (limite !== null) {
-            // Último valor da máquina 1
-            const ultimo1 = dados.values1.length ? dados.values1[dados.values1.length - 1] : 0;
-            if (ultimo1 > limite) {
-              document.getElementById("card1").classList.add("alerta");
-            } else {
-              document.getElementById("card1").classList.remove("alerta");
-            }
+            const ultimo1 = dados.values1.length ? dados.values1[dados.values1.length-1] : 0;
+            const ultimo2 = dados.values2.length ? dados.values2[dados.values2.length-1] : 0;
 
-            // Último valor da máquina 2
-            const ultimo2 = dados.values2.length ? dados.values2[dados.values2.length - 1] : 0;
-            if (ultimo2 > limite) {
-              document.getElementById("card2").classList.add("alerta");
-            } else {
-              document.getElementById("card2").classList.remove("alerta");
-            }
+            document.getElementById("card1").classList.toggle("alerta", ultimo1 > limite);
+            document.getElementById("card2").classList.toggle("alerta", ultimo2 > limite);
 
-            // Mensagem geral de alerta
-            document.getElementById("alerta").innerText =
-              (ultimo1 > limite || ultimo2 > limite) ? "⚠️ Consumo acima do limite!" : "";
+            document.getElementById("alerta").innerText = (ultimo1 > limite || ultimo2 > limite)
+              ? "⚠️ Consumo acima do limite!" : "";
           } else {
-            // Limite não definido → remove qualquer alerta
             document.getElementById("card1").classList.remove("alerta");
             document.getElementById("card2").classList.remove("alerta");
             document.getElementById("alerta").innerText = "";
           }
-
-        } catch (e) {
-          console.error("Erro ao carregar dados:", e);
-        }
+        } catch(e) { console.error("Erro ao carregar dados:", e); }
       }
-
 
       function criarGrafico(canvasId, titulo, cor) {
         return new Chart(document.getElementById(canvasId), {
           type: "line",
-          data: { labels: [], datasets: [{ label: titulo, data: [], borderColor: cor, backgroundColor: cor.replace("1)", "0.2)"), fill: true, tension: 0.3, borderWidth: 2, pointRadius: 3 }] },
-          options: { responsive: true, animation: false, scales: { x: { title: { display: true, text: "Tempo" } }, y: { title: { display: true, text: "Consumo (W)" }, beginAtZero: true } } }
+          data: {
+            labels: [],
+            datasets: [{ label: titulo, data: [], borderColor: cor, backgroundColor: cor.replace("1)","0.2)"), fill:true, tension:0.3, borderWidth:2, pointRadius:3 }]
+          },
+          options: { responsive:true, animation:false, scales: { x: { title:{ display:true, text:"Tempo" } }, y: { title:{ display:true, text:"Consumo (W)" }, beginAtZero:true } } }
         });
       }
 
-      function atualizarGrafico(chart, labels, values) { chart.data.labels = labels; chart.data.datasets[0].data = values; chart.update(); }
+      function atualizarGrafico(chart, labels, values) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.update();
+      }
 
       async function definirLimite() {
         const valor = document.getElementById("limite").value;
-        if (!valor) return;
+        if(!valor) return;
         limite = parseFloat(valor);
-        await fetch("/setLimit?valor=" + valor);
-        document.getElementById("statusLimite").innerText = "Limite definido: " + valor + "W";
+        await fetch("/setLimit?valor="+valor);
+        document.getElementById("statusLimite").innerText = "Limite definido: "+valor+"W";
       }
 
-      chart1 = criarGrafico("chart1", "Consumo Máquina 1", "rgba(54, 162, 235, 1)");
-      chart2 = criarGrafico("chart2", "Consumo Máquina 2", "rgba(255, 99, 132, 1)");
+      chart1 = criarGrafico("chart1","Consumo Máquina 1","rgba(54, 162, 235, 1)");
+      chart2 = criarGrafico("chart2","Consumo Máquina 2","rgba(255, 99, 132, 1)");
 
-      setInterval(carregarDados, 1000);
+      setInterval(carregarDados,1000);
       carregarDados();
     </script>
   </body>
@@ -198,6 +194,8 @@ void handleRoot() {
 
   server.send(200, "text/html", html);
 }
+
+
 
 
 
