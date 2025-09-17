@@ -87,73 +87,30 @@ void handleRoot() {
     <title>Consumo de Máquinas</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        background-color: #f5f5f5;
-        margin: 0;
-        padding: 0;
-        text-align: center;
-      }
-      .container {
-        max-width: 900px;
-        margin: auto;
-        padding: 20px;
-      }
-      .card {
-        background-color: #fff;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 30px;
-      }
-      canvas {
-        max-width: 100%;
-      }
-      input[type="number"] {
-        padding: 10px;
-        border-radius: 6px;
-        border: 1px solid #ccc;
-        width: 120px;
-        font-size: 16px;
-      }
-      button {
-        padding: 10px 20px;
-        border-radius: 6px;
-        border: none;
-        background-color: #007bff;
-        color: white;
-        font-size: 16px;
-        cursor: pointer;
-        margin-left: 10px;
-      }
-      button:hover {
-        background-color: #0056b3;
-      }
-      #statusLimite {
-        margin-top: 10px;
-        font-weight: bold;
-        color: #333;
-      }
-      #alerta {
-        font-weight: bold;
-        color: #ff0000;
-        font-size: 20px;
-        margin-bottom: 20px;
-      }
+      body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; text-align: center; }
+      .container { max-width: 900px; margin: auto; padding: 20px; }
+      .card { background-color: #fff; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 12px; padding: 20px; margin-bottom: 30px; transition: background-color 0.3s ease; }
+      canvas { max-width: 100%; }
+      input[type="number"] { padding: 10px; border-radius: 6px; border: 1px solid #ccc; width: 120px; font-size: 16px; }
+      button { padding: 10px 20px; border-radius: 6px; border: none; background-color: #007bff; color: white; font-size: 16px; cursor: pointer; margin-left: 10px; }
+      button:hover { background-color: #0056b3; }
+      #statusLimite { margin-top: 10px; font-weight: bold; color: #333; }
+      #alerta { font-weight: bold; color: #ff0000; font-size: 20px; margin-bottom: 20px; }
+      .alerta { animation: piscar 1s infinite; }
+      @keyframes piscar { 0% { background-color: #fff; } 50% { background-color: #ffcccc; } 100% { background-color: #fff; } }
     </style>
   </head>
   <body>
     <div class="container">
       <h1>Monitoramento de Consumo de Máquinas</h1>
-
       <div id="alerta"></div>
 
-      <div class="card">
+      <div id="card1" class="card">
         <h2>Máquina 1</h2>
         <canvas id="chart1"></canvas>
       </div>
 
-      <div class="card">
+      <div id="card2" class="card">
         <h2>Máquina 2</h2>
         <canvas id="chart2"></canvas>
       </div>
@@ -168,7 +125,7 @@ void handleRoot() {
 
     <script>
       let chart1, chart2;
-      let alerta = false;
+      let limite = null; // Limite só definido após o usuário informar
 
       async function carregarDados() {
         try {
@@ -178,54 +135,53 @@ void handleRoot() {
           atualizarGrafico(chart1, dados.labels1, dados.values1);
           atualizarGrafico(chart2, dados.labels2, dados.values2);
 
-          // Verifica se algum consumo passou do limite
-          const limite = parseFloat(document.getElementById("limite").value || "150");
-          alerta = false;
-          for (let v of dados.values1) if (v > limite) alerta = true;
-          for (let v of dados.values2) if (v > limite) alerta = true;
+          if (limite !== null) {
+            // Último valor da máquina 1
+            const ultimo1 = dados.values1.length ? dados.values1[dados.values1.length - 1] : 0;
+            if (ultimo1 > limite) {
+              document.getElementById("card1").classList.add("alerta");
+            } else {
+              document.getElementById("card1").classList.remove("alerta");
+            }
 
-          document.getElementById("alerta").innerText = alerta ? "⚠️ Consumo acima do limite!" : "";
+            // Último valor da máquina 2
+            const ultimo2 = dados.values2.length ? dados.values2[dados.values2.length - 1] : 0;
+            if (ultimo2 > limite) {
+              document.getElementById("card2").classList.add("alerta");
+            } else {
+              document.getElementById("card2").classList.remove("alerta");
+            }
+
+            // Mensagem geral de alerta
+            document.getElementById("alerta").innerText =
+              (ultimo1 > limite || ultimo2 > limite) ? "⚠️ Consumo acima do limite!" : "";
+          } else {
+            // Limite não definido → remove qualquer alerta
+            document.getElementById("card1").classList.remove("alerta");
+            document.getElementById("card2").classList.remove("alerta");
+            document.getElementById("alerta").innerText = "";
+          }
+
         } catch (e) {
           console.error("Erro ao carregar dados:", e);
         }
       }
 
+
       function criarGrafico(canvasId, titulo, cor) {
         return new Chart(document.getElementById(canvasId), {
           type: "line",
-          data: {
-            labels: [],
-            datasets: [{
-              label: titulo,
-              data: [],
-              borderColor: cor,
-              backgroundColor: cor.replace("1)", "0.2)"),
-              fill: true,
-              tension: 0.3,
-              borderWidth: 2,
-              pointRadius: 3
-            }]
-          },
-          options: {
-            responsive: true,
-            animation: false,
-            scales: {
-              x: { title: { display: true, text: "Tempo" } },
-              y: { title: { display: true, text: "Consumo (W)" }, beginAtZero: true }
-            }
-          }
+          data: { labels: [], datasets: [{ label: titulo, data: [], borderColor: cor, backgroundColor: cor.replace("1)", "0.2)"), fill: true, tension: 0.3, borderWidth: 2, pointRadius: 3 }] },
+          options: { responsive: true, animation: false, scales: { x: { title: { display: true, text: "Tempo" } }, y: { title: { display: true, text: "Consumo (W)" }, beginAtZero: true } } }
         });
       }
 
-      function atualizarGrafico(chart, labels, values) {
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = values;
-        chart.update();
-      }
+      function atualizarGrafico(chart, labels, values) { chart.data.labels = labels; chart.data.datasets[0].data = values; chart.update(); }
 
       async function definirLimite() {
         const valor = document.getElementById("limite").value;
         if (!valor) return;
+        limite = parseFloat(valor);
         await fetch("/setLimit?valor=" + valor);
         document.getElementById("statusLimite").innerText = "Limite definido: " + valor + "W";
       }
@@ -242,6 +198,8 @@ void handleRoot() {
 
   server.send(200, "text/html", html);
 }
+
+
 
 void handleData() {
   String labels1 = "", values1 = "";
