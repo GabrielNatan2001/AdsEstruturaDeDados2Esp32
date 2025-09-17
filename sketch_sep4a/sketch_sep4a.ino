@@ -86,79 +86,156 @@ void handleRoot() {
     <meta charset="UTF-8">
     <title>Consumo de Máquinas</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  </head>
-  <body style="font-family: Arial; text-align: center;">
-    <h2>Máquina 1</h2>
-    <canvas id="chart1"></canvas>
-    <h2>Máquina 2</h2>
-    <canvas id="chart2"></canvas>
-
-    <h3>Definir limite de consumo:</h3>
-    <input type="number" id="limite" placeholder="Ex: 150">
-    <button onclick="definirLimite()">Enviar</button>
-    <p id="statusLimite"></p>
-
-   <script>
-    let chart1, chart2;
-
-    async function carregarDados() {
-      try {
-        const resp = await fetch("/data");
-        const dados = await resp.json();
-
-        atualizarGrafico(chart1, dados.labels1, dados.values1);
-        atualizarGrafico(chart2, dados.labels2, dados.values2);
-      } catch (e) {
-        console.error("Erro ao carregar dados:", e);
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+        margin: 0;
+        padding: 0;
+        text-align: center;
       }
-    }
+      .container {
+        max-width: 900px;
+        margin: auto;
+        padding: 20px;
+      }
+      .card {
+        background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 30px;
+      }
+      canvas {
+        max-width: 100%;
+      }
+      input[type="number"] {
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        width: 120px;
+        font-size: 16px;
+      }
+      button {
+        padding: 10px 20px;
+        border-radius: 6px;
+        border: none;
+        background-color: #007bff;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      #statusLimite {
+        margin-top: 10px;
+        font-weight: bold;
+        color: #333;
+      }
+      #alerta {
+        font-weight: bold;
+        color: #ff0000;
+        font-size: 20px;
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Monitoramento de Consumo de Máquinas</h1>
 
-    function criarGrafico(canvasId, titulo, cor) {
-      return new Chart(document.getElementById(canvasId), {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [{
-            label: titulo,
-            data: [],
-            borderColor: cor,
-            backgroundColor: cor.replace("1)", "0.2)"),
-            fill: true,
-            tension: 0.3,
-            borderWidth: 2,
-            pointRadius: 3
-          }]
-        },
-        options: {
-          responsive: true,
-          animation: false,
-          scales: {
-            x: { title: { display: true, text: "Tempo" } },
-            y: { title: { display: true, text: "Consumo (W)" }, beginAtZero: true }
-          }
+      <div id="alerta"></div>
+
+      <div class="card">
+        <h2>Máquina 1</h2>
+        <canvas id="chart1"></canvas>
+      </div>
+
+      <div class="card">
+        <h2>Máquina 2</h2>
+        <canvas id="chart2"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>Definir limite de consumo (W)</h3>
+        <input type="number" id="limite" placeholder="Ex: 150">
+        <button onclick="definirLimite()">Enviar</button>
+        <p id="statusLimite"></p>
+      </div>
+    </div>
+
+    <script>
+      let chart1, chart2;
+      let alerta = false;
+
+      async function carregarDados() {
+        try {
+          const resp = await fetch("/data");
+          const dados = await resp.json();
+
+          atualizarGrafico(chart1, dados.labels1, dados.values1);
+          atualizarGrafico(chart2, dados.labels2, dados.values2);
+
+          // Verifica se algum consumo passou do limite
+          const limite = parseFloat(document.getElementById("limite").value || "150");
+          alerta = false;
+          for (let v of dados.values1) if (v > limite) alerta = true;
+          for (let v of dados.values2) if (v > limite) alerta = true;
+
+          document.getElementById("alerta").innerText = alerta ? "⚠️ Consumo acima do limite!" : "";
+        } catch (e) {
+          console.error("Erro ao carregar dados:", e);
         }
-      });
-    }
+      }
 
-    function atualizarGrafico(chart, labels, values) {
-      chart.data.labels = labels;
-      chart.data.datasets[0].data = values;
-      chart.update();
-    }
+      function criarGrafico(canvasId, titulo, cor) {
+        return new Chart(document.getElementById(canvasId), {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [{
+              label: titulo,
+              data: [],
+              borderColor: cor,
+              backgroundColor: cor.replace("1)", "0.2)"),
+              fill: true,
+              tension: 0.3,
+              borderWidth: 2,
+              pointRadius: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            animation: false,
+            scales: {
+              x: { title: { display: true, text: "Tempo" } },
+              y: { title: { display: true, text: "Consumo (W)" }, beginAtZero: true }
+            }
+          }
+        });
+      }
 
-    async function definirLimite() {
-      const valor = document.getElementById("limite").value;
-      if (!valor) return;
-      await fetch("/setLimit?valor=" + valor);
-      document.getElementById("statusLimite").innerText = "Limite definido: " + valor + "W";
-    }
+      function atualizarGrafico(chart, labels, values) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.update();
+      }
 
-    chart1 = criarGrafico("chart1", "Consumo Máquina 1", "rgba(54, 162, 235, 1)");
-    chart2 = criarGrafico("chart2", "Consumo Máquina 2", "rgba(255, 99, 132, 1)");
+      async function definirLimite() {
+        const valor = document.getElementById("limite").value;
+        if (!valor) return;
+        await fetch("/setLimit?valor=" + valor);
+        document.getElementById("statusLimite").innerText = "Limite definido: " + valor + "W";
+      }
 
-    setInterval(carregarDados, 1000);
-    carregarDados();
-  </script>
+      chart1 = criarGrafico("chart1", "Consumo Máquina 1", "rgba(54, 162, 235, 1)");
+      chart2 = criarGrafico("chart2", "Consumo Máquina 2", "rgba(255, 99, 132, 1)");
+
+      setInterval(carregarDados, 1000);
+      carregarDados();
+    </script>
   </body>
   </html>
   )rawliteral";
