@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <WebServer.h>
+#include <time.h>  // biblioteca para hora via NTP
 
 // ===== CONFIG WIFI =====
 const char* ssid = "M54teste";
@@ -48,13 +49,14 @@ void inOrder(Node* root, String& labels, String& values) {
   }
 }
 
-// ===== Gerador de timestamp fake =====
-int counter = 0;
+// ===== Gerar timestamp com horário real =====
 String gerarTimestamp() {
-  int h = (counter / 6) % 24;
-  int m = (counter * 10) % 60;
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    return "00:00"; // fallback caso não consiga pegar a hora
+  }
   char buffer[20];
-  sprintf(buffer, "%02d:%02d", h, m);
+  strftime(buffer, sizeof(buffer), "%H:%M:%S", &timeinfo); 
   return String(buffer);
 }
 
@@ -98,7 +100,7 @@ void handleRoot() {
             label: titulo,
             data: [],
             borderColor: cor,
-            backgroundColor: cor.replace("1)", "0.2)"), // mesma cor mais clara no fundo
+            backgroundColor: cor.replace("1)", "0.2)"), 
             fill: true,
             tension: 0.3,
             borderWidth: 2,
@@ -107,15 +109,10 @@ void handleRoot() {
         },
         options: {
           responsive: true,
-          animation: false, // sem animação para atualizar rápido
+          animation: false, 
           scales: {
-            x: { 
-              title: { display: true, text: "Tempo" } 
-            },
-            y: { 
-              title: { display: true, text: "Consumo (W)" },
-              beginAtZero: true 
-            }
+            x: { title: { display: true, text: "Tempo" } },
+            y: { title: { display: true, text: "Consumo (W)" }, beginAtZero: true }
           }
         }
       });
@@ -127,11 +124,9 @@ void handleRoot() {
       chart.update();
     }
 
-    // Cria os gráficos vazios com cores diferentes
-    chart1 = criarGrafico("chart1", "Consumo Máquina 1", "rgba(54, 162, 235, 1)");   // Azul
-    chart2 = criarGrafico("chart2", "Consumo Máquina 2", "rgba(255, 99, 132, 1)");  // Vermelho
+    chart1 = criarGrafico("chart1", "Consumo Máquina 1", "rgba(54, 162, 235, 1)");   
+    chart2 = criarGrafico("chart2", "Consumo Máquina 2", "rgba(255, 99, 132, 1)");  
 
-    // Atualiza automaticamente a cada 5 segundos
     setInterval(carregarDados, 1000);
     carregarDados();
   </script>
@@ -173,9 +168,8 @@ void loop() {
 
   if (millis() - lastInsertTime >= 10000) {
     lastInsertTime = millis();
-    counter++;
 
-    unsigned long newKey = baseKey + counter * 600;
+    unsigned long newKey = baseKey + millis() / 1000;
     String ts = gerarTimestamp();
 
     float consumo1 = random(90, 160);
@@ -200,6 +194,9 @@ void setup() {
   }
   Serial.println("\nConectado!");
   Serial.println(WiFi.localIP());
+
+  // Configura NTP (UTC-3 = Brasil)
+  configTime(-3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
 
   server.on("/", handleRoot);
   server.on("/data", handleData);
